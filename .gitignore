@@ -1,0 +1,5 @@
+# Goland's configuration.
+.idea/
+
+# Builds
+out/
