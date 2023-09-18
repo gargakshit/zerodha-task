@@ -3,7 +3,7 @@
 BIN := demo.bin
 
 build:
-	go build -o ${BIN} -ldflags="-X 'main.version=${VERSION}'"
+	CGO_ENABLED=0 go build -o ${BIN} -ldflags="-X 'main.version=${VERSION}'"
 
 run:
 	./${BIN}

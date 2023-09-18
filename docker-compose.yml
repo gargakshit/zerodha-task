@@ -1,0 +1,53 @@
+version: "3"
+
+services:
+  redis:
+    # I prefer to pin the image version (even the OS version) for
+    # reproducibility.
+    image: "redis:7.2.1-alpine3.18"
+
+    # We run redis with log-level set to warning, and it saving 5 or more writes
+    # every 60 seconds to disk. This number depends on the application workload.
+    # For example, for a cache, we can increase these to allow for more
+    # throughput.
+    command: "redis-server --save 60 5 --loglevel warning"
+
+    # Mount the redis-data volume on /data (default redis data dir).
+    volumes:
+      - "redis-data:/data"
+
+  app:
+    # Not pinning it here yet. Ideally in production, this should come from a CD
+    # pipeline.
+    build: .
+
+    # Run this after redis is up.
+    depends_on:
+      - redis
+
+    environment:
+      # Set the redis address.
+      DEMO_REDIS_ADDR: "redis:6379"
+      # Listen on 0.0.0.0:8080. We will proxy this using nginx.
+      DEMO_APP_ADDR: "0.0.0.0:8080"
+
+  nginx:
+    # Again I prefer to pin the image.
+    image: nginx:1.25.2-alpine3.18-slim
+
+    # Expose nginx on 8123.
+    ports:
+      - "8123:80"
+
+    # Mount the config.
+    volumes:
+      - "./config/nginx/:/etc/nginx/conf.d/"
+
+    # Start nginx once the app is up.
+    depends_on:
+      - app
+
+volumes:
+  # Have a volume for all the redis data.
+  redis-data:
+    driver: "local" # Use the local driver for now.
