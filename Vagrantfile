@@ -4,12 +4,13 @@
 Vagrant.configure("2") do |config|
   # Use jammy64 (22.04 LTS).
   config.vm.box = "ubuntu/jammy64"
+  # False because we'll use the insecure key. Do not do this in production,
+  # assuming someone uses vagrant in production.
+  config.ssh.insert_key = false
+  # Disable the synced folder.
+  config.vm.synced_folder ".", "/vagrant", disabled: true
 
-  # Enable provisioning with a shell script. Additional provisioners such as
-  # Ansible, Chef, Docker, Puppet and Salt are also available. Please see the
-  # documentation for more information about their specific syntax and use.
-  # config.vm.provision "shell", inline: <<-SHELL
-  #   apt-get update
-  #   apt-get install -y apache2
-  # SHELL
+  config.vm.define "app" do |app|
+    app.vm.network :private_network, ip: "192.168.100.100"
+  end
 end

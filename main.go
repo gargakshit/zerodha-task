@@ -59,6 +59,11 @@ func main() {
 		}
 		w.Write([]byte(fmt.Sprintf("welcome to api. key count is: %d", val)))
 	})
+
+	r.Get("/healthz", func(w http.ResponseWriter, r *http.Request) {
+		w.WriteHeader(201)
+	})
+
 	addr := os.Getenv("DEMO_APP_ADDR")
 	if addr == "" {
 		addr = ":8080"
