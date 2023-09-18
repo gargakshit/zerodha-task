@@ -1,0 +1,140 @@
+---
+- hosts: default
+  become: true
+
+  handlers:
+    - name: "reload sshd"
+      service:
+        name: sshd
+        state: reloaded
+
+  pre_tasks:
+    - name: "apt update"
+      apt:
+        update_cache: true
+        cache_valid_time: 3600 # Only update it every hour.
+
+  tasks:
+    - name: "Set the hostname"
+      hostname:
+        name: demo-ops
+
+    - name: "Create user demo"
+      user:
+        name: demo
+
+    - name: "Disable root login"
+      lineinfile:
+        path: "/etc/ssh/ssh_config"
+        regexp: "^PermitRootLogin"
+        line: "PermitRootLogin no"
+        backup: true
+      notify:
+        - "reload sshd"
+
+    - name: "Install ufw"
+      apt:
+        name:
+          - ufw
+
+    - name: "Deny all"
+      ufw:
+        default: deny
+        direction: incoming
+
+    - name: "Allow ssh"
+      ufw:
+        rule: allow
+        port: 22
+
+    - name: "Allow http"
+      ufw:
+        rule: allow
+        port: 80
+
+    - name: "Allow https"
+      ufw:
+        rule: allow
+        port: 443
+
+    - name: "Enable firewall"
+      ufw:
+        state: enabled
+
+    - name: "Increase FD limit"
+      # Increase the FD limit to 1 mil. Each socket requires an FD.
+      # Nginx will create worker processes, which will have a backend
+      # connection to the upstream, and the upstream (the demo app) will
+      # have a pooled connection to redis which will have files on
+      # the disk open.
+      # More FDs will be used by system software, docker daemon, and
+      # docker network proxy (responsible for networking on the compose
+      # stack).
+      sysctl:
+        name: fs.file-max
+        value: 1000000
+
+    - name: "Set the swappiness to 1"
+      # Only swap when needed. Increases the performance as the kernel
+      # may not retroactively swap. Will also decrease SSD wear.
+      sysctl:
+        name: vm.swappiness
+        value: 1
+
+    - name: "Set the timezone to Asia/Kolkata"
+      timezone:
+        name: "Asia/Kolkata"
+
+    - name: "Install gpg"
+      apt:
+        name:
+          - gpg
+
+    - name: "Add docker's gpg key"
+      apt_key:
+        url: "https://download.docker.com/linux/ubuntu/gpg"
+        state: present
+
+    - name: "Verify docker's gpg key"
+      apt_key:
+        id: "0EBFCD88"
+        state: present
+
+    - name: "Add docker's apt repository"
+      apt_repository:
+        repo: deb [arch=amd64] https://download.docker.com/linux/ubuntu jammy stable
+        state: present
+
+    - name: "apt update"
+      apt:
+        update_cache: true
+
+    - name: "Install docker"
+      apt:
+        name:
+          - docker-ce
+          - docker-ce-cli
+          - containerd.io
+          - docker-buildx-plugin
+          - docker-compose-plugin
+
+    - name: "Install pip3"
+      apt:
+        name:
+          - python3-pip
+
+    - name: "Install docker python sdk and docker-compose"
+      # This is needed for ansible.
+      pip:
+        name:
+          - docker
+          - docker-compose
+
+    - name: "Copy the application"
+      copy:
+        src: ../
+        dest: /etc/demo-ops
+
+    - name: "Deploy!"
+      docker_compose:
+        project_src: /etc/demo-ops
